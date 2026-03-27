@@ -4,9 +4,11 @@ import { transform } from "./transform"
 import { insertTransaction } from "./db"
 
 const kafka = new Kafka({
+  clientId: "etl-worker",
   brokers: ["localhost:9092"]
 })
 
+const admin = kafka.admin()
 const consumer = kafka.consumer({ groupId: "etl-group" })
 const producer = kafka.producer()
 
@@ -30,11 +32,38 @@ async function processWithRetry(data: any, retries = 3): Promise<void> {
   }
 }
 
+async function ensureTopicsExist() {
+  await admin.connect()
+  
+  const existingTopics = await admin.listTopics()
+  const topicsToCreate = ["etl-topic", "etl-dlq"].filter(t => !existingTopics.includes(t))
+  
+  if (topicsToCreate.length > 0) {
+    await admin.createTopics({
+      topics: topicsToCreate.map(topic => ({
+        topic,
+        numPartitions: 1,
+        replicationFactor: 1
+      }))
+    })
+    console.log("Created topics:", topicsToCreate)
+  } else {
+    console.log("Topics already exist:", ["etl-topic", "etl-dlq"])
+  }
+  
+  await admin.disconnect()
+}
+
 async function run() {
+  // Create topics first
+  await ensureTopicsExist()
+
   await consumer.connect()
   await producer.connect()
 
-  await consumer.subscribe({ topic: "etl-topic" })
+  console.log("Worker connected, waiting for messages...")
+
+  await consumer.subscribe({ topic: "etl-topic", fromBeginning: true })
 
   await consumer.run({
     eachMessage: async ({ message }) => {
