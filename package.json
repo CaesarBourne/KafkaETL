@@ -4,7 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "setup": "npx ts-node src/setup-topics.ts",
+    "producer": "npx ts-node src/producer.ts",
+    "worker": "npx ts-node src/worker.ts",
+    "dlq": "npx ts-node src/dlq-consumer.ts"
   },
   "keywords": [],
   "author": "",
